@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: muertos-del-pasado-api
+    env: node
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: ITU_API_KEY
+        sync: false
+      - key: SDR_STREAM_URL
+        sync: false
