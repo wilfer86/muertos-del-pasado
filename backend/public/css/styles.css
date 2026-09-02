@@ -1,0 +1,131 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #000000;
+  color: #ffffff;
+  font-family: 'Courier New', monospace;
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 40px;
+  border-bottom: 1px solid #333333;
+  padding-bottom: 20px;
+}
+
+h1 {
+  color: #ffffff;
+  font-size: 2.5em;
+  letter-spacing: 4px;
+  margin-bottom: 10px;
+}
+
+.subtitle {
+  color: #666666;
+  font-size: 0.9em;
+}
+
+.controls {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.btn-primary, .btn-secondary {
+  background-color: #1a1a1a;
+  color: #ffffff;
+  border: 1px solid #555555;
+  padding: 15px 40px;
+  font-family: 'Courier New', monospace;
+  font-size: 1em;
+  cursor: pointer;
+  margin: 0 10px;
+  transition: all 0.3s;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #333333;
+  border-color: #888888;
+}
+
+.btn-secondary {
+  background-color: #0a0a0a;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #222222;
+}
+
+button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.spectrogram-container {
+  background-color: #0a0a0a;
+  border: 1px solid #333333;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+#spectrogram {
+  width: 100%;
+  height: 300px;
+  background-color: #000000;
+  border: 1px solid #222222;
+}
+
+.status {
+  text-align: center;
+  color: #888888;
+  padding: 15px;
+  border: 1px solid #222222;
+  margin-bottom: 20px;
+  font-size: 0.9em;
+}
+
+.results {
+  background-color: #0a0a0a;
+  border: 1px solid #333333;
+  padding: 20px;
+}
+
+.frequency-card {
+  background-color: #111111;
+  border: 1px solid #444444;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.frequency-card h3 {
+  color: #ffffff;
+  margin-bottom: 10px;
+}
+
+.frequency-card p {
+  color: #888888;
+  font-size: 0.9em;
+  margin: 5px 0;
+}
+
+@media (max-width: 600px) {
+  h1 { font-size: 1.8em; }
+  #spectrogram { height: 200px; }
+  .btn-primary, .btn-secondary {
+    display: block;
+    width: 100%;
+    margin: 10px 0;
+  }
+}
