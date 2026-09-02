@@ -1,19 +1,20 @@
 require('./config/env');
 const express = require('express');
 const cors = require('cors');
-const path = require('path'); // <-- AGREGA ESTA LÍNEA
+const path = require('path');
 const frequencyRoutes = require('./routes/frequencies');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ESTA ES LA LÍNEA MÁGICA: Sirve los archivos de la carpeta public
+// Servir archivos estáticos desde la carpeta public
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Ruta de la API
 app.use('/api/frequencies', frequencyRoutes);
 
-// Esto hace que si entras a la raíz, te muestre el index.html
+// Ruta raíz - sirve el index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
