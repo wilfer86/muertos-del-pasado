@@ -5,12 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Muertos del Pasado</title>
   <link rel="stylesheet" href="css/styles.css">
-  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="img/logo.png">
 </head>
-<body>
+<body class="web-bg">
+  <div class="overlay"></div>
+  
   <div class="container">
     <header>
-      <h1> MUERTOS DEL PASADO</h1>
+      <img src="img/logo.png" alt="Logo" class="logo">
+      <h1>MUERTOS DEL PASADO</h1>
       <p class="subtitle">Arqueología de señales de radio muertas</p>
     </header>
     
@@ -21,15 +24,17 @@
     
     <div class="spectrogram-container">
       <canvas id="spectrogram"></canvas>
+      <div class="scan-line"></div>
     </div>
     
-    <div id="status" class="status">Esperando...</div>
+    <div id="status" class="status">
+      <span class="status-icon"></span>
+      <span class="status-text">Esperando...</span>
+    </div>
     
     <div id="results" class="results"></div>
   </div>
 
-  <script src="js/apiClient.js"></script>
-  <script src="js/spectrogram.js"></script>
-  <script src="js/app.js"></script>
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
