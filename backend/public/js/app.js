@@ -1,12 +1,10 @@
 import { fetchFrequencies } from './apiClient.js';
 import Spectrogram from './spectrogram.js';
 
-// Detectar si es móvil o PC
 function isMobile() {
   return window.innerWidth <= 768;
 }
 
-// Aplicar clase de fondo correcta
 function applyBackground() {
   const body = document.body;
   if (isMobile()) {
@@ -18,7 +16,6 @@ function applyBackground() {
   }
 }
 
-// Inicialización
 document.addEventListener('DOMContentLoaded', () => {
   applyBackground();
   window.addEventListener('resize', applyBackground);
@@ -33,6 +30,38 @@ document.addEventListener('DOMContentLoaded', () => {
   let spectrogram = null;
   let stopScan = null;
   let isScanning = false;
+  let userLocation = null;
+
+  // Función para obtener ubicación GPS
+  function getLocation() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocalización no disponible'));
+        return;
+      }
+      
+      statusIcon.textContent = '';
+      statusText.textContent = 'Obteniendo ubicación GPS...';
+      
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          userLocation = {
+            lat: position.coords.latitude,
+            lon: position.coords.longitude
+          };
+          resolve(userLocation);
+        },
+        (error) => {
+          reject(error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    });
+  }
 
   startBtn.addEventListener('click', async () => {
     if (isScanning) return;
@@ -42,26 +71,28 @@ document.addEventListener('DOMContentLoaded', () => {
     stopBtn.disabled = false;
     
     statusDiv.className = 'status scanning';
-    statusIcon.textContent = '🔍';
-    statusText.textContent = 'Escaneando espectro de frecuencias...';
     resultsDiv.innerHTML = '';
     
-    // Inicializar espectrograma
-    spectrogram = new Spectrogram('spectrogram');
-    spectrogram.clear();
-    stopScan = spectrogram.simulateScan();
-    
+    // Paso 1: Obtener ubicación
     try {
-      // Simular delay de escaneo
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await getLocation();
+      statusText.textContent = `Ubicación: ${userLocation.lat.toFixed(4)}, ${userLocation.lon.toFixed(4)}`;
       
-      // Obtener datos del backend
-      const data = await fetchFrequencies();
+      // Paso 2: Iniciar espectrograma
+      spectrogram = new Spectrogram('spectrogram');
+      spectrogram.clear();
+      stopScan = spectrogram.simulateScan();
+      
+      // Paso 3: Esperar simulación de escaneo
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Paso 4: Obtener frecuencias (por ahora datos de ejemplo)
+      const data = await fetchFrequencies(userLocation.lat, userLocation.lon);
       
       if (data && data.frequencies) {
         statusDiv.className = 'status success';
         statusIcon.textContent = '✅';
-        statusText.textContent = `Se encontraron ${data.frequencies.length} señal(es)`;
+        statusText.textContent = `Se encontraron ${data.frequencies.length} señal(es) cerca de ti`;
         displayResults(data.frequencies);
       } else {
         statusDiv.className = 'status';
@@ -71,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       statusDiv.className = 'status error';
       statusIcon.textContent = '❌';
-      statusText.textContent = 'Error de conexión con el backend';
+      statusText.textContent = 'Error: ' + error.message;
       console.error(error);
     }
   });
@@ -95,7 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
     frequencies.forEach((freq, index) => {
       const card = document.createElement('div');
       card.className = 'frequency-card';
-      card.style.animationDelay = `${index * 0.2}s`;
       card.innerHTML = `
         <h3>📡 ${freq.frequency}</h3>
         <p><strong>Estado:</strong> ${freq.status}</p>
