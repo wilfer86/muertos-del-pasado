@@ -1,6 +1,7 @@
 import { fetchFrequencies } from './apiClient.js';
 import Spectrogram from './spectrogram.js';
 import AudioCapture from './audioCapture.js';
+import database from './database.js';
 
 function isMobile() {
   return window.innerWidth <= 768;
@@ -17,9 +18,17 @@ function applyBackground() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   applyBackground();
   window.addEventListener('resize', applyBackground);
+  
+  // Inicializar base de datos al cargar
+  try {
+    await database.init();
+    console.log(' Base de datos lista');
+  } catch (error) {
+    console.error('Error al inicializar BD:', error);
+  }
   
   const startBtn = document.getElementById('startBtn');
   const stopBtn = document.getElementById('stopBtn');
@@ -33,6 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let animationFrame = null;
   let isScanning = false;
   let userLocation = null;
+  let audioRecorder = null;
+  let audioChunks = [];
 
   function getLocation() {
     return new Promise((resolve, reject) => {
@@ -52,31 +63,55 @@ document.addEventListener('DOMContentLoaded', () => {
           };
           resolve(userLocation);
         },
-        (error) => {
-          reject(error);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
+        (error) => reject(error),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     });
   }
 
-  // Función para dibujar datos REALES del micrófono
+  // Iniciar grabación de audio
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+      
+      audioRecorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+      
+      audioRecorder.start();
+    } catch (error) {
+      console.error('Error al grabar audio:', error);
+    }
+  }
+
+  // Detener grabación y obtener blob
+  function stopRecording() {
+    return new Promise((resolve) => {
+      if (audioRecorder && audioRecorder.state !== 'inactive') {
+        audioRecorder.onstop = () => {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          resolve(audioBlob);
+          // Liberar micrófono
+          audioRecorder.stream.getTracks().forEach(track => track.stop());
+        };
+        audioRecorder.stop();
+      } else {
+        resolve(null);
+      }
+    });
+  }
+
   function drawRealAudio() {
     if (!audioCapture || !audioCapture.isCapturing) return;
 
     const frequencyData = audioCapture.getFrequencyData();
     
     if (frequencyData) {
-      // Normalizar datos (0-255 → 0-1)
       const normalizedData = frequencyData.rawData.map(v => v / 255);
-      
-      // Dibujar en el espectrograma
       spectrogram.clear();
-      normalizedData.forEach((intensity, index) => {
+      normalizedData.forEach((intensity) => {
         spectrogram.addData(intensity);
       });
       spectrogram.draw();
@@ -93,14 +128,16 @@ document.addEventListener('DOMContentLoaded', () => {
     stopBtn.disabled = false;
     
     statusDiv.className = 'status scanning';
+    statusIcon.textContent = '🔍';
+    statusText.textContent = 'Iniciando captura científica...';
     resultsDiv.innerHTML = '';
     
     try {
-      // Paso 1: Obtener ubicación
+      // 1. Ubicación GPS
       await getLocation();
-      statusText.textContent = `Ubicación: ${userLocation.lat.toFixed(4)}, ${userLocation.lon.toFixed(4)}`;
+      statusText.textContent = `📍 ${userLocation.lat.toFixed(4)}, ${userLocation.lon.toFixed(4)}`;
       
-      // Paso 2: Iniciar captura de audio REAL
+      // 2. Captura de audio real
       audioCapture = new AudioCapture();
       const micOk = await audioCapture.start();
       
@@ -114,29 +151,50 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       
-      statusText.textContent = '🎙️ Capturando audio real...';
+      // 3. Iniciar grabación para guardar
+      await startRecording();
       
-      // Paso 3: Inicializar espectrograma
+      // 4. Espectrograma en tiempo real
       spectrogram = new Spectrogram('spectrogram');
       spectrogram.clear();
-      
-      // Paso 4: Iniciar dibujo en tiempo real
       drawRealAudio();
       
-      // Paso 5: Obtener frecuencias de la FCC
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // 5. Esperar 5 segundos de captura
+      statusText.textContent = '🎙️ Capturando datos (5s)...';
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      // 6. Detener grabación
+      const audioBlob = await stopRecording();
+      
+      // 7. Obtener frecuencias FCC
       const data = await fetchFrequencies(userLocation.lat, userLocation.lon);
       
-      if (data && data.frequencies) {
+      // 8. Guardar captura en base de datos local
+      const captura = {
+        fecha: new Date().toISOString(),
+        ubicacion: userLocation,
+        frecuenciasDetectadas: data?.frequencies || [],
+        intensidadMaxima: audioCapture ? 0.8 : 0,
+        duracion: 5,
+        audioBlob: audioBlob,
+        notas: 'Captura automática'
+      };
+      
+      const idGuardado = await database.guardarCaptura(captura);
+      console.log(' Captura guardada con ID:', idGuardado);
+      
+      // 9. Mostrar resultados
+      if (data && data.frequencies && data.frequencies.length > 0) {
         statusDiv.className = 'status success';
         statusIcon.textContent = '✅';
-        statusText.textContent = `Se encontraron ${data.frequencies.length} señal(es) cerca de ti`;
+        statusText.textContent = `${data.frequencies.length} señal(es) | Guardada en BD #${idGuardado}`;
         displayResults(data.frequencies);
       } else {
-        statusDiv.className = 'status';
-        statusIcon.textContent = '️';
-        statusText.textContent = 'No se encontraron señales';
+        statusDiv.className = 'status success';
+        statusIcon.textContent = '💾';
+        statusText.textContent = `Datos guardados localmente (ID: ${idGuardado})`;
       }
+      
     } catch (error) {
       statusDiv.className = 'status error';
       statusIcon.textContent = '❌';
@@ -155,15 +213,8 @@ document.addEventListener('DOMContentLoaded', () => {
     statusIcon.textContent = '⏸️';
     statusText.textContent = 'Escaneo detenido';
     
-    // Detener audio real
-    if (audioCapture) {
-      audioCapture.stop();
-    }
-    
-    // Detener animación
-    if (animationFrame) {
-      cancelAnimationFrame(animationFrame);
-    }
+    if (audioCapture) audioCapture.stop();
+    if (animationFrame) cancelAnimationFrame(animationFrame);
   });
 
   function displayResults(frequencies) {
@@ -171,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const card = document.createElement('div');
       card.className = 'frequency-card';
       card.innerHTML = `
-        <h3> ${freq.frequency}</h3>
+        <h3>📡 ${freq.frequency}</h3>
         <p><strong>Estado:</strong> ${freq.status}</p>
         <p><strong>Última actividad:</strong> ${freq.lastActive}</p>
         <p><strong>Ubicación:</strong> ${freq.location}</p>
