@@ -25,9 +25,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Inicializar base de datos al cargar
   try {
     await database.init();
-    console.log(' Base de datos lista');
+    console.log('✅ Base de datos inicializada');
+    
+    // Mostrar contador de capturas guardadas
+    const count = await database.contarCapturas();
+    console.log(`💾 Tienes ${count} captura(s) guardada(s)`);
   } catch (error) {
-    console.error('Error al inicializar BD:', error);
+    console.error('❌ Error al inicializar BD:', error);
   }
   
   const startBtn = document.getElementById('startBtn');
