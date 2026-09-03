@@ -1,5 +1,6 @@
 import { fetchFrequencies } from './apiClient.js';
 import Spectrogram from './spectrogram.js';
+import AudioCapture from './audioCapture.js';
 
 function isMobile() {
   return window.innerWidth <= 768;
@@ -28,11 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const resultsDiv = document.getElementById('results');
   
   let spectrogram = null;
-  let stopScan = null;
+  let audioCapture = null;
+  let animationFrame = null;
   let isScanning = false;
   let userLocation = null;
 
-  // Función para obtener ubicación GPS
   function getLocation() {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
@@ -63,6 +64,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Función para dibujar datos REALES del micrófono
+  function drawRealAudio() {
+    if (!audioCapture || !audioCapture.isCapturing) return;
+
+    const frequencyData = audioCapture.getFrequencyData();
+    
+    if (frequencyData) {
+      // Normalizar datos (0-255 → 0-1)
+      const normalizedData = frequencyData.rawData.map(v => v / 255);
+      
+      // Dibujar en el espectrograma
+      spectrogram.clear();
+      normalizedData.forEach((intensity, index) => {
+        spectrogram.addData(intensity);
+      });
+      spectrogram.draw();
+    }
+
+    animationFrame = requestAnimationFrame(drawRealAudio);
+  }
+
   startBtn.addEventListener('click', async () => {
     if (isScanning) return;
     
@@ -73,20 +95,36 @@ document.addEventListener('DOMContentLoaded', () => {
     statusDiv.className = 'status scanning';
     resultsDiv.innerHTML = '';
     
-    // Paso 1: Obtener ubicación
     try {
+      // Paso 1: Obtener ubicación
       await getLocation();
       statusText.textContent = `Ubicación: ${userLocation.lat.toFixed(4)}, ${userLocation.lon.toFixed(4)}`;
       
-      // Paso 2: Iniciar espectrograma
+      // Paso 2: Iniciar captura de audio REAL
+      audioCapture = new AudioCapture();
+      const micOk = await audioCapture.start();
+      
+      if (!micOk) {
+        statusDiv.className = 'status error';
+        statusIcon.textContent = '❌';
+        statusText.textContent = 'No se pudo acceder al micrófono';
+        isScanning = false;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        return;
+      }
+      
+      statusText.textContent = '🎙️ Capturando audio real...';
+      
+      // Paso 3: Inicializar espectrograma
       spectrogram = new Spectrogram('spectrogram');
       spectrogram.clear();
-      stopScan = spectrogram.simulateScan();
       
-      // Paso 3: Esperar simulación de escaneo
+      // Paso 4: Iniciar dibujo en tiempo real
+      drawRealAudio();
+      
+      // Paso 5: Obtener frecuencias de la FCC
       await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Paso 4: Obtener frecuencias (por ahora datos de ejemplo)
       const data = await fetchFrequencies(userLocation.lat, userLocation.lon);
       
       if (data && data.frequencies) {
@@ -96,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
         displayResults(data.frequencies);
       } else {
         statusDiv.className = 'status';
-        statusIcon.textContent = '⚠️';
+        statusIcon.textContent = '️';
         statusText.textContent = 'No se encontraron señales';
       }
     } catch (error) {
@@ -117,8 +155,14 @@ document.addEventListener('DOMContentLoaded', () => {
     statusIcon.textContent = '⏸️';
     statusText.textContent = 'Escaneo detenido';
     
-    if (stopScan) {
-      stopScan();
+    // Detener audio real
+    if (audioCapture) {
+      audioCapture.stop();
+    }
+    
+    // Detener animación
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame);
     }
   });
 
@@ -127,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const card = document.createElement('div');
       card.className = 'frequency-card';
       card.innerHTML = `
-        <h3>📡 ${freq.frequency}</h3>
+        <h3> ${freq.frequency}</h3>
         <p><strong>Estado:</strong> ${freq.status}</p>
         <p><strong>Última actividad:</strong> ${freq.lastActive}</p>
         <p><strong>Ubicación:</strong> ${freq.location}</p>
