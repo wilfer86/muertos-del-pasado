@@ -1,238 +1,124 @@
-import { fetchFrequencies } from './apiClient.js';
-import Spectrogram from './spectrogram.js';
-import AudioCapture from './audioCapture.js';
-import database from './database.js';
-
-function isMobile() {
-  return window.innerWidth <= 768;
-}
-
-function applyBackground() {
-  const body = document.body;
-  if (isMobile()) {
-    body.classList.remove('web-bg');
-    body.classList.add('app-bg');
-  } else {
-    body.classList.remove('app-bg');
-    body.classList.add('web-bg');
-  }
-}
-
-document.addEventListener('DOMContentLoaded', async () => {
-  applyBackground();
-  window.addEventListener('resize', applyBackground);
+startBtn.addEventListener('click', async () => {
+  if (isScanning) return;
   
-  // Inicializar base de datos al cargar
+  isScanning = true;
+  startBtn.disabled = true;
+  stopBtn.disabled = false;
+  
+  statusDiv.className = 'status scanning';
+  statusIcon.textContent = '🔍';
+  statusText.textContent = 'Iniciando captura científica...';
+  resultsDiv.innerHTML = '';
+  
   try {
-    await database.init();
-    console.log('✅ Base de datos inicializada');
+    // 1. Ubicación GPS
+    await getLocation();
+    statusText.textContent = ` ${userLocation.lat.toFixed(4)}, ${userLocation.lon.toFixed(4)}`;
     
-    // Mostrar contador de capturas guardadas
-    const count = await database.contarCapturas();
-    console.log(`💾 Tienes ${count} captura(s) guardada(s)`);
-  } catch (error) {
-    console.error('❌ Error al inicializar BD:', error);
-  }
-  
-  const startBtn = document.getElementById('startBtn');
-  const stopBtn = document.getElementById('stopBtn');
-  const statusDiv = document.getElementById('status');
-  const statusText = statusDiv.querySelector('.status-text');
-  const statusIcon = statusDiv.querySelector('.status-icon');
-  const resultsDiv = document.getElementById('results');
-  
-  let spectrogram = null;
-  let audioCapture = null;
-  let animationFrame = null;
-  let isScanning = false;
-  let userLocation = null;
-  let audioRecorder = null;
-  let audioChunks = [];
-
-  function getLocation() {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error('Geolocalización no disponible'));
-        return;
-      }
-      
-      statusIcon.textContent = '';
-      statusText.textContent = 'Obteniendo ubicación GPS...';
-      
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          userLocation = {
-            lat: position.coords.latitude,
-            lon: position.coords.longitude
-          };
-          resolve(userLocation);
-        },
-        (error) => reject(error),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    });
-  }
-
-  // Iniciar grabación de audio
-  async function startRecording() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioRecorder = new MediaRecorder(stream);
-      audioChunks = [];
-      
-      audioRecorder.ondataavailable = (event) => {
-        audioChunks.push(event.data);
-      };
-      
-      audioRecorder.start();
-    } catch (error) {
-      console.error('Error al grabar audio:', error);
+    // 2. Captura de audio real
+    audioCapture = new AudioCapture();
+    const micOk = await audioCapture.start();
+    
+    if (!micOk) {
+      throw new Error('No se pudo acceder al micrófono');
     }
-  }
-
-  // Detener grabación y obtener blob
-  function stopRecording() {
-    return new Promise((resolve) => {
-      if (audioRecorder && audioRecorder.state !== 'inactive') {
-        audioRecorder.onstop = () => {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-          resolve(audioBlob);
-          // Liberar micrófono
-          audioRecorder.stream.getTracks().forEach(track => track.stop());
-        };
-        audioRecorder.stop();
-      } else {
-        resolve(null);
-      }
-    });
-  }
-
-  function drawRealAudio() {
-    if (!audioCapture || !audioCapture.isCapturing) return;
-
-    const frequencyData = audioCapture.getFrequencyData();
     
-    if (frequencyData) {
-      const normalizedData = frequencyData.rawData.map(v => v / 255);
-      spectrogram.clear();
-      normalizedData.forEach((intensity) => {
-        spectrogram.addData(intensity);
-      });
-      spectrogram.draw();
-    }
-
-    animationFrame = requestAnimationFrame(drawRealAudio);
-  }
-
-  startBtn.addEventListener('click', async () => {
-    if (isScanning) return;
+    // 3. Iniciar grabación
+    await startRecording();
     
-    isScanning = true;
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
+    // 4. Espectrograma
+    spectrogram = new Spectrogram('spectrogram');
+    spectrogram.clear();
+    drawRealAudio();
     
-    statusDiv.className = 'status scanning';
-    statusIcon.textContent = '🔍';
-    statusText.textContent = 'Iniciando captura científica...';
-    resultsDiv.innerHTML = '';
+    // 5. Esperar 5 segundos
+    statusText.textContent = '️ Capturando datos (5s)...';
+    await new Promise(resolve => setTimeout(resolve, 5000));
     
+    // 6. Detener grabación
+    const audioBlob = await stopRecording();
+    
+    // 7. Obtener frecuencias FCC
+    const data = await fetchFrequencies(userLocation.lat, userLocation.lon);
+    
+    // 8. Guardar en IndexedDB (local)
+    const capturaLocal = {
+      fecha: new Date().toISOString(),
+      ubicacion: userLocation,
+      frecuenciasDetectadas: data?.frequencies || [],
+      intensidadMaxima: 0.8,
+      duracion: 5,
+      audioBlob: audioBlob,
+      notas: 'Captura automática'
+    };
+    
+    const idLocal = await database.guardarCaptura(capturaLocal);
+    console.log('💾 Guardado local ID:', idLocal);
+    
+    // 9. ENVIAR A MONGODB (nuevo)
     try {
-      // 1. Ubicación GPS
-      await getLocation();
-      statusText.textContent = `📍 ${userLocation.lat.toFixed(4)}, ${userLocation.lon.toFixed(4)}`;
+      // Convertir blob a base64 para enviar
+      const audioBase64 = audioBlob ? await blobToBase64(audioBlob) : null;
       
-      // 2. Captura de audio real
-      audioCapture = new AudioCapture();
-      const micOk = await audioCapture.start();
-      
-      if (!micOk) {
-        statusDiv.className = 'status error';
-        statusIcon.textContent = '❌';
-        statusText.textContent = 'No se pudo acceder al micrófono';
-        isScanning = false;
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-        return;
-      }
-      
-      // 3. Iniciar grabación para guardar
-      await startRecording();
-      
-      // 4. Espectrograma en tiempo real
-      spectrogram = new Spectrogram('spectrogram');
-      spectrogram.clear();
-      drawRealAudio();
-      
-      // 5. Esperar 5 segundos de captura
-      statusText.textContent = '🎙️ Capturando datos (5s)...';
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      
-      // 6. Detener grabación
-      const audioBlob = await stopRecording();
-      
-      // 7. Obtener frecuencias FCC
-      const data = await fetchFrequencies(userLocation.lat, userLocation.lon);
-      
-      // 8. Guardar captura en base de datos local
-      const captura = {
+      const capturaMongo = {
         fecha: new Date().toISOString(),
         ubicacion: userLocation,
         frecuenciasDetectadas: data?.frequencies || [],
-        intensidadMaxima: audioCapture ? 0.8 : 0,
+        intensidadMaxima: 0.8,
         duracion: 5,
-        audioBlob: audioBlob,
-        notas: 'Captura automática'
+        audioUrl: audioBase64, // En base64
+        notas: 'Captura desde app',
+        userId: 'anonimo_' + Date.now()
       };
       
-      const idGuardado = await database.guardarCaptura(captura);
-      console.log(' Captura guardada con ID:', idGuardado);
+      console.log('📤 Enviando a MongoDB...');
       
-      // 9. Mostrar resultados
-      if (data && data.frequencies && data.frequencies.length > 0) {
-        statusDiv.className = 'status success';
-        statusIcon.textContent = '✅';
-        statusText.textContent = `${data.frequencies.length} señal(es) | Guardada en BD #${idGuardado}`;
-        displayResults(data.frequencies);
+      const response = await fetch('/api/capturas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(capturaMongo)
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Guardado en MongoDB:', result.data._id);
+        statusText.textContent = `✅ Guardado local #${idLocal} + MongoDB`;
       } else {
-        statusDiv.className = 'status success';
-        statusIcon.textContent = '💾';
-        statusText.textContent = `Datos guardados localmente (ID: ${idGuardado})`;
+        console.error('❌ Error al enviar a MongoDB');
       }
-      
     } catch (error) {
-      statusDiv.className = 'status error';
-      statusIcon.textContent = '❌';
-      statusText.textContent = 'Error: ' + error.message;
-      console.error(error);
+      console.error('Error MongoDB:', error);
+      // No falla la app si MongoDB falla
     }
-  });
-
-  stopBtn.addEventListener('click', () => {
-    if (!isScanning) return;
     
-    isScanning = false;
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-    statusDiv.className = 'status';
-    statusIcon.textContent = '⏸️';
-    statusText.textContent = 'Escaneo detenido';
+    // 10. Mostrar resultados
+    if (data && data.frequencies && data.frequencies.length > 0) {
+      statusDiv.className = 'status success';
+      statusIcon.textContent = '✅';
+      statusText.textContent = `${data.frequencies.length} señal(es) | ID: ${idLocal}`;
+      displayResults(data.frequencies);
+    } else {
+      statusDiv.className = 'status success';
+      statusIcon.textContent = '💾';
+      statusText.textContent = `Datos guardados localmente (ID: ${idLocal})`;
+    }
     
-    if (audioCapture) audioCapture.stop();
-    if (animationFrame) cancelAnimationFrame(animationFrame);
-  });
-
-  function displayResults(frequencies) {
-    frequencies.forEach((freq, index) => {
-      const card = document.createElement('div');
-      card.className = 'frequency-card';
-      card.innerHTML = `
-        <h3>📡 ${freq.frequency}</h3>
-        <p><strong>Estado:</strong> ${freq.status}</p>
-        <p><strong>Última actividad:</strong> ${freq.lastActive}</p>
-        <p><strong>Ubicación:</strong> ${freq.location}</p>
-        <p><strong>Descripción:</strong> ${freq.description}</p>
-      `;
-      resultsDiv.appendChild(card);
-    });
+  } catch (error) {
+    statusDiv.className = 'status error';
+    statusIcon.textContent = '❌';
+    statusText.textContent = 'Error: ' + error.message;
+    console.error(error);
   }
 });
+
+// Helper: convertir Blob a Base64
+async function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
