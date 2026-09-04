@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tu Captura - Muertos del Pasado</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; background: #0a0a0a; color: #e0e0e0; padding: 20px; }
+    .container { max-width: 800px; margin: 0 auto; }
+    header { text-align: center; padding: 30px 0; border-bottom: 2px solid #333; margin-bottom: 30px; }
+    h1 { font-size: 2em; color: #fff; margin-bottom: 10px; }
+    .badge { background: #00d4ff; color: #000; padding: 8px 20px; border-radius: 20px; display: inline-block; margin: 10px 0; }
+    .capture-card { background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: 25px; margin-top: 20px; }
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 15px 0; }
+    .info-item { background: #0f0f0f; padding: 10px; border-radius: 5px; }
+    .info-label { color: #666; font-size: 0.85em; }
+    .info-value { color: #fff; font-weight: bold; margin-top: 5px; }
+    .direccion-box { background: #001a33; border-left: 4px solid #00d4ff; padding: 15px; margin: 15px 0; border-radius: 5px; }
+    .direccion-text { color: #00d4ff; font-size: 1.1em; font-weight: bold; }
+    .audio-container { background: #0f0f0f; padding: 15px; border-radius: 5px; margin: 15px 0; }
+    .audio-player { width: 100%; margin-bottom: 10px; }
+    .btn-ia { background: #00cc66; color: white; border: none; padding: 12px; border-radius: 5px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 10px; }
+    .btn-ia:hover { background: #00994d; }
+    .btn { background: #00d4ff; color: #000; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
+    .error { background: #ff4444; color: white; padding: 20px; border-radius: 5px; text-align: center; margin: 50px 0; }
+    .loading { text-align: center; padding: 50px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🔬 Tu Captura Científica</h1>
+      <p>Muertos del Pasado - Evidencia Audio</p>
+      <div class="badge" id="captureId">Cargando...</div>
+    </header>
+
+    <div id="loading" class="loading">
+      <p>Cargando tu captura...</p>
+    </div>
+
+    <div id="captureContent" style="display: none;"></div>
+
+    <div id="error" class="error" style="display: none;">
+      <p>❌ No se pudo cargar la captura</p>
+      <p style="font-size: 0.9em; margin-top: 10px;">El ID de esta captura no existe o fue eliminado</p>
+      <a href="/" class="btn">← Volver a la App</a>
+    </div>
+  </div>
+
+  <script>
+    async function cargarCaptura() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const id = urlParams.get('id');
+      
+      if (!id) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/capturas/' + id);
+        const data = await response.json();
+        
+        if (!data.success) {
+          throw new Error('Captura no encontrada');
+        }
+
+        mostrarCaptura(data.data);
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+      }
+    }
+
+    function mostrarCaptura(captura) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('captureContent').style.display = 'block';
+      
+      const fecha = new Date(captura.fecha).toLocaleString('es-CO', {
+        year: 'numeric', month: 'long', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+
+      const tieneAudio = captura.audioUrl && captura.audioUrl !== 'null';
+
+      const html = `
+        <div class="capture-card">
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="info-label">📅 Fecha de captura</div>
+              <div class="info-value">${fecha}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">⏱️ Duración</div>
+              <div class="info-value">${captura.duracion || 0}s</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">📍 Ubicación GPS</div>
+              <div class="info-value">${captura.ubicacion?.lat?.toFixed(6) || 'N/A'}, ${captura.ubicacion?.lon?.toFixed(6) || 'N/A'}</div>
+            </div>
+          </div>
+
+          <div class="direccion-box">
+            <div class="info-label"> Dirección de la captura:</div>
+            <div class="direccion-text">${captura.direccionCivil || 'Dirección desconocida'}</div>
+            <div style="margin-top: 8px; font-size: 0.9em; color: #888;">
+              🏘️ ${captura.barrio || 'N/A'} | 🏙️ ${captura.ciudad || 'N/A'} | 🌍 ${captura.pais || 'N/A'}
+            </div>
+          </div>
+
+          ${tieneAudio ? `
+            <div class="audio-container">
+              <div class="info-label" style="margin-bottom:5px;">🎙️ Tu Audio Original (Evidencia Pura):</div>
+              <audio controls class="audio-player">
+                <source src="${captura.audioUrl}" type="audio/webm">
+                Tu navegador no soporta audio.
+              </audio>
+              <button class="btn-ia" onclick="procesarAudioEVP('${captura.audioUrl}', this)">
+                🎧 Procesar Audio (Filtro IA - Aislar Voces)
+              </button>
+            </div>
+          ` : '<p style="color: #666; text-align: center; padding: 20px;">Sin audio disponible</p>'}
+
+          <div style="margin-top: 20px; text-align: center;">
+            <a href="/" class="btn">← Volver a la App</a>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('captureContent').innerHTML = html;
+      document.getElementById('captureId').textContent = `ID: ${captura._id}`;
+    }
+
+    async function procesarAudioEVP(audioUrl, btn) {
+      if (!audioUrl) { alert('No hay audio disponible.'); return; }
+      
+      btn.textContent = '⏳ Analizando espectro...';
+      btn.disabled = true;
+
+      try {
+        const response = await fetch(audioUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        
+        const source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        
+        const lowCut = audioCtx.createBiquadFilter();
+        lowCut.type = 'highpass';
+        lowCut.frequency.value = 300; 
+        
+        const highCut = audioCtx.createBiquadFilter();
+        highCut.type = 'lowpass';
+        highCut.frequency.value = 3400; 
+        
+        const gainNode = audioCtx.createGain();
+        gainNode.gain.value = 4.0; 
+        
+        source.connect(lowCut);
+        lowCut.connect(highCut);
+        highCut.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        source.start(0);
+        btn.textContent = '▶️ Reproduciendo Filtro IA (Voz aislada)...';
+        
+        source.onended = () => {
+          btn.textContent = '🎧 Procesar Audio (Filtro IA - Aislar Voces)';
+          btn.disabled = false;
+        };
+      } catch (error) {
+        btn.textContent = '❌ Error al procesar';
+        setTimeout(() => { btn.textContent = '🎧 Procesar Audio (Filtro IA - Aislar Voces)'; btn.disabled = false; }, 2000);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', cargarCapturas);
+  </script>
+</body>
+</html>
