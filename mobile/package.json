@@ -1,0 +1,14 @@
+{
+  "name": "muertos-del-pasado-app",
+  "version": "1.0.0",
+  "description": "App de captura de psicofonías",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo 'Build complete'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/cli": "^6.0.0"
+  }
+}
