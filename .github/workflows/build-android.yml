@@ -3,8 +3,6 @@ name: Build Android APK
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'mobile/**'
 
 jobs:
   build:
@@ -24,13 +22,24 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
         
-    - name: Install Dependencies and Build
+    - name: Install Dependencies
       run: |
         cd mobile
         npm install
-        npx cap add android
+        
+    - name: Add Android Platform
+      run: |
+        cd mobile
+        npx cap add android || true
+        
+    - name: Sync Android
+      run: |
+        cd mobile
         npx cap sync android
-        cd android
+        
+    - name: Build APK
+      run: |
+        cd mobile/android
         chmod +x gradlew
         ./gradlew assembleDebug
         
