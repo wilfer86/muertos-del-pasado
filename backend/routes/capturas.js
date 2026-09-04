@@ -8,6 +8,10 @@ router.post('/', async (req, res) => {
     const {
       fecha,
       ubicacion,
+      direccionCivil,
+      barrio,
+      ciudad,
+      pais,
       frecuenciasDetectadas,
       intensidadMaxima,
       duracion,
@@ -15,12 +19,17 @@ router.post('/', async (req, res) => {
       analisisIA,
       potencialEnergetico,
       notas,
-      userId
+      userId,
+      deviceId
     } = req.body;
 
     const nuevaCaptura = new Captura({
       fecha: fecha || new Date(),
       ubicacion,
+      direccionCivil: direccionCivil || 'Desconocida',
+      barrio: barrio || 'Desconocido',
+      ciudad: ciudad || 'Desconocida',
+      pais: pais || 'Desconocido',
       frecuenciasDetectadas: frecuenciasDetectadas || [],
       intensidadMaxima: intensidadMaxima || 0,
       duracion: duracion || 0,
@@ -28,7 +37,8 @@ router.post('/', async (req, res) => {
       analisisIA: analisisIA || null,
       potencialEnergetico: potencialEnergetico || 'bajo',
       notas: notas || '',
-      userId: userId || 'anonimo'
+      userId: userId || 'anonimo',
+      deviceId: deviceId || 'desconocido'
     });
 
     const capturaGuardada = await nuevaCaptura.save();
@@ -48,7 +58,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// GET: Obtener todas las capturas (para tu estudio)
+// GET: Obtener todas las capturas
 router.get('/', async (req, res) => {
   try {
     const capturas = await Captura.find()
