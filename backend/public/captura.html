@@ -41,9 +41,9 @@
 
     <div id="captureContent" style="display: none;"></div>
 
-    <div id="error" class="error" style="display: none;">
+    <div id="errorMsg" class="error" style="display: none;">
       <p>❌ No se pudo cargar la captura</p>
-      <p style="font-size: 0.9em; margin-top: 10px;">El ID de esta captura no existe o fue eliminado</p>
+      <p id="errorDetail" style="font-size: 0.9em; margin-top: 10px;"></p>
       <a href="/" class="btn">← Volver a la App</a>
     </div>
   </div>
@@ -53,17 +53,27 @@
       const urlParams = new URLSearchParams(window.location.search);
       const id = urlParams.get('id');
       
+      console.log('ID de captura:', id);
+      
       if (!id) {
         document.getElementById('loading').style.display = 'none';
-        document.getElementById('error').style.display = 'block';
+        document.getElementById('errorMsg').style.display = 'block';
+        document.getElementById('errorDetail').textContent = 'No se proporcionó un ID de captura válido';
         return;
       }
 
       try {
         const response = await fetch('/api/capturas/' + id);
-        const data = await response.json();
+        console.log('Respuesta:', response.status);
         
-        if (!data.success) {
+        if (!response.ok) {
+          throw new Error('HTTP ' + response.status);
+        }
+        
+        const data = await response.json();
+        console.log('Datos:', data);
+        
+        if (!data.success || !data.data) {
           throw new Error('Captura no encontrada');
         }
 
@@ -71,7 +81,8 @@
       } catch (error) {
         console.error('Error:', error);
         document.getElementById('loading').style.display = 'none';
-        document.getElementById('error').style.display = 'block';
+        document.getElementById('errorMsg').style.display = 'block';
+        document.getElementById('errorDetail').textContent = error.message;
       }
     }
 
@@ -84,13 +95,13 @@
         hour: '2-digit', minute: '2-digit', second: '2-digit'
       });
 
-      const tieneAudio = captura.audioUrl && captura.audioUrl !== 'null';
+      const tieneAudio = captura.audioUrl && captura.audioUrl !== 'null' && captura.audioUrl !== null;
 
       const html = `
         <div class="capture-card">
           <div class="info-grid">
             <div class="info-item">
-              <div class="info-label">📅 Fecha de captura</div>
+              <div class="info-label"> Fecha de captura</div>
               <div class="info-value">${fecha}</div>
             </div>
             <div class="info-item">
@@ -104,7 +115,7 @@
           </div>
 
           <div class="direccion-box">
-            <div class="info-label"> Dirección de la captura:</div>
+            <div class="info-label">📍 Dirección de la captura:</div>
             <div class="direccion-text">${captura.direccionCivil || 'Dirección desconocida'}</div>
             <div style="margin-top: 8px; font-size: 0.9em; color: #888;">
               🏘️ ${captura.barrio || 'N/A'} | 🏙️ ${captura.ciudad || 'N/A'} | 🌍 ${captura.pais || 'N/A'}
@@ -131,13 +142,13 @@
       `;
 
       document.getElementById('captureContent').innerHTML = html;
-      document.getElementById('captureId').textContent = `ID: ${captura._id}`;
+      document.getElementById('captureId').textContent = 'ID: ' + captura._id;
     }
 
     async function procesarAudioEVP(audioUrl, btn) {
       if (!audioUrl) { alert('No hay audio disponible.'); return; }
       
-      btn.textContent = '⏳ Analizando espectro...';
+      btn.textContent = ' Analizando espectro...';
       btn.disabled = true;
 
       try {
@@ -174,12 +185,14 @@
           btn.disabled = false;
         };
       } catch (error) {
+        console.error('Error:', error);
         btn.textContent = '❌ Error al procesar';
         setTimeout(() => { btn.textContent = '🎧 Procesar Audio (Filtro IA - Aislar Voces)'; btn.disabled = false; }, 2000);
       }
     }
 
-    window.addEventListener('DOMContentLoaded', cargarCapturas);
+    // Cargar al iniciar
+    window.addEventListener('DOMContentLoaded', cargarCaptura);
   </script>
 </body>
 </html>
