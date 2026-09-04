@@ -101,5 +101,29 @@ router.get('/stats', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// GET: Obtener una captura específica por ID
+router.get('/:id', async (req, res) => {
+  try {
+    const captura = await Captura.findById(req.params.id);
+    
+    if (!captura) {
+      return res.status(404).json({
+        success: false,
+        message: 'Captura no encontrada'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: captura
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener captura',
+      error: error.message
+    });
+  }
+});
 
 module.exports = router;
