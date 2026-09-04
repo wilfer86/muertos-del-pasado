@@ -27,5 +27,9 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+   // Ruta del Panel de Administración
+   app.get('/admin', (req, res) => {
+     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+   });
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`Muertos del Pasado API running on port ${PORT}`));
