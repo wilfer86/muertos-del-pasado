@@ -6,14 +6,24 @@ const capturaSchema = new mongoose.Schema({
     default: Date.now
   },
   ubicacion: {
-    lat: {
-      type: Number,
-      required: true
-    },
-    lon: {
-      type: Number,
-      required: true
-    }
+    lat: { type: Number, required: true },
+    lon: { type: Number, required: true }
+  },
+  direccionCivil: {
+    tipo: String,
+    default: 'Desconocida'
+  },
+  barrio: {
+    type: String,
+    default: 'Desconocido'
+  },
+  ciudad: {
+    type: String,
+    default: 'Desconocida'
+  },
+  pais: {
+    type: String,
+    default: 'Desconocido'
   },
   frecuenciasDetectadas: [{
     frecuencia: String,
@@ -28,7 +38,7 @@ const capturaSchema = new mongoose.Schema({
   },
   duracion: {
     type: Number,
-    default: 0 // en segundos
+    default: 0
   },
   audioUrl: {
     type: String,
@@ -51,6 +61,10 @@ const capturaSchema = new mongoose.Schema({
     type: String,
     default: 'anonimo'
   },
+  deviceId: {
+    type: String,
+    default: 'desconocido'
+  },
   timestamp: {
     type: Number,
     default: Date.now
@@ -59,8 +73,8 @@ const capturaSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Índice para búsquedas rápidas por ubicación
 capturaSchema.index({ 'ubicacion.lat': 1, 'ubicacion.lon': 1 });
 capturaSchema.index({ fecha: -1 });
+capturaSchema.index({ userId: 1 });
 
 module.exports = mongoose.model('Captura', capturaSchema);
