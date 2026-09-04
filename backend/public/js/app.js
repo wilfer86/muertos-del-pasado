@@ -28,16 +28,25 @@ window.blobToBase64 = function(blob) {
   });
 };
 
+// Generar ID único permanente para este dispositivo
+function getDeviceId() {
+  let deviceId = localStorage.getItem('mdp_device_id');
+  if (!deviceId) {
+    deviceId = 'device_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+    localStorage.setItem('mdp_device_id', deviceId);
+  }
+  return deviceId;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   applyBackground();
   window.addEventListener('resize', applyBackground);
   
-  // Inicializar Base de Datos Local
   try {
     await database.init();
     console.log('✅ BD Local inicializada');
   } catch (error) {
-    console.error('❌ Error BD:', error);
+    console.error(' Error BD:', error);
   }
   
   const startBtn = document.getElementById('startBtn');
@@ -54,6 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let userLocation = null;
   let audioRecorder = null;
   let audioChunks = [];
+  let direccionInfo = null;
 
   function getLocation() {
     return new Promise((resolve, reject) => {
@@ -76,9 +86,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Obtener dirección civil desde OpenStreetMap
+  async function obtenerDireccion() {
+    try {
+      statusText.textContent = '📍 Obteniendo dirección...';
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${userLocation.lat}&lon=${userLocation.lon}&zoom=18&addressdetails=1`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'MuertosDelPasado-App/1.0'
+        }
+      });
+      
+      if (!response.ok) throw new Error('Error en geocoding');
+      
+      const data = await response.json();
+      const address = data.address || {};
+      
+      const partes = [];
+      if (address.road) partes.push(address.road);
+      if (address.suburb || address.neighbourhood) partes.push(address.suburb || address.neighbourhood);
+      if (address.city || address.town || address.village) partes.push(address.city || address.town || address.village);
+      if (address.state) partes.push(address.state);
+      if (address.country) partes.push(address.country);
+      
+      direccionInfo = {
+        direccion: partes.join(', ') || 'Dirección desconocida',
+        barrio: address.suburb || address.neighbourhood || 'Desconocido',
+        ciudad: address.city || address.town || address.village || 'Desconocida',
+        pais: address.country || 'Desconocido',
+        nombreLugar: address.name || address.road || 'Sin nombre'
+      };
+      
+      console.log(' Dirección:', direccionInfo.direccion);
+    } catch (error) {
+      console.error('Error geocoding:', error);
+      direccionInfo = {
+        direccion: `Coordenadas: ${userLocation.lat.toFixed(4)}, ${userLocation.lon.toFixed(4)}`,
+        barrio: 'Desconocido',
+        ciudad: 'Desconocida',
+        pais: 'Desconocido',
+        nombreLugar: 'Sin datos'
+      };
+    }
+  }
+
   async function startRecording() {
     try {
-      // Configuración de ALTA CALIDAD para investigación científica (sin filtros que borren frecuencias)
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
@@ -92,7 +146,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       audioRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus',
-        audioBitsPerSecond: 128000 // 128 kbps (buena calidad, tamaño manejable)
+        audioBitsPerSecond: 128000
       });
       audioChunks = [];
       
@@ -114,7 +168,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         audioRecorder.onstop = () => {
           const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
           resolve(audioBlob);
-          // Liberar el micrófono
           audioRecorder.stream.getTracks().forEach(track => track.stop());
         };
         audioRecorder.stop();
@@ -156,9 +209,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       // 1. Obtener GPS
       await getLocation();
-      statusText.textContent = `📍 GPS OK: ${userLocation.lat.toFixed(4)}, ${userLocation.lon.toFixed(4)}`;
+      statusText.textContent = `📍 GPS: ${userLocation.lat.toFixed(4)}, ${userLocation.lon.toFixed(4)}`;
       
-      // 2. Iniciar captura de espectro
+      // 2. Obtener dirección civil
+      await obtenerDireccion();
+      statusText.textContent = `📍 ${direccionInfo.direccion}`;
+      
+      // 3. Iniciar captura de espectro
       audioCapture = new AudioCapture();
       const micOk = await audioCapture.start();
       
@@ -166,28 +223,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         throw new Error('No se pudo acceder al micrófono');
       }
       
-      // 3. Iniciar grabación de audio
+      // 4. Iniciar grabación de audio
       await startRecording();
       
-      // 4. Iniciar espectrograma visual
+      // 5. Iniciar espectrograma visual
       spectrogram = new Spectrogram('spectrogram');
       spectrogram.clear();
       drawRealAudio();
       
-      // 5. ESPERAR 60 SEGUNDOS (1 MINUTO)
+      // 6. ESPERAR 60 SEGUNDOS
       statusText.textContent = '🎙️ Capturando audio y espectro (60s)...';
       await new Promise(resolve => setTimeout(resolve, 60000));
       
-      // 6. Detener grabación
+      // 7. Detener grabación
       const audioBlob = await stopRecording();
       
-      // 7. Obtener frecuencias de la API
+      // 8. Obtener frecuencias de la API
       const data = await fetchFrequencies(userLocation.lat, userLocation.lon);
       
-      // 8. Guardar en Base de Datos LOCAL (IndexedDB)
+      // 9. Generar ID único del dispositivo
+      const deviceId = getDeviceId();
+      
+      // 10. Guardar en Base de Datos LOCAL
       const idLocal = await database.guardarCaptura({
         fecha: new Date().toISOString(),
         ubicacion: userLocation,
+        direccion: direccionInfo.direccion,
         frecuenciasDetectadas: data?.frequencies || [],
         intensidadMaxima: 0.8,
         duracion: 60,
@@ -196,9 +257,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       console.log('💾 Guardado local ID:', idLocal);
       
-      // 9. Enviar a MongoDB (NUBE) CON AUDIO
+      // 11. Enviar a MongoDB CON TODOS LOS DATOS
       try {
-        console.log('🔄 Convirtiendo audio a base64 para la nube...');
+        console.log(' Convirtiendo audio a base64...');
         const audioBase64 = audioBlob ? await window.blobToBase64(audioBlob) : null;
         console.log('📦 Tamaño del audio:', audioBase64 ? (audioBase64.length / 1024 / 1024).toFixed(2) + ' MB' : '0 MB');
 
@@ -208,37 +269,42 @@ document.addEventListener('DOMContentLoaded', async () => {
           body: JSON.stringify({
             fecha: new Date().toISOString(),
             ubicacion: userLocation,
+            direccionCivil: direccionInfo.direccion,
+            barrio: direccionInfo.barrio,
+            ciudad: direccionInfo.ciudad,
+            pais: direccionInfo.pais,
             frecuenciasDetectadas: data?.frequencies || [],
             intensidadMaxima: 0.8,
             duracion: 60,
-            audioUrl: audioBase64, // ¡AUDIO INCLUIDO!
+            audioUrl: audioBase64,
             notas: 'Captura científica con audio',
-            userId: 'user_' + Date.now()
+            userId: 'investigador_' + deviceId.substring(0, 15),
+            deviceId: deviceId
           })
         });
 
         if (response.ok) {
           const result = await response.json();
-          console.log('✅ MongoDB + Audio guardado exitosamente:', result.data._id);
-          statusText.textContent = `✅ Guardado Local #${idLocal} + Nube`;
+          console.log('✅ MongoDB guardado:', result.data._id);
+          statusText.textContent = `✅ Guardado: ${direccionInfo.direccion}`;
         } else {
           const errorData = await response.json();
-          console.error('❌ Error al enviar a MongoDB:', errorData);
+          console.error('❌ Error MongoDB:', errorData);
         }
       } catch (e) {
-        console.error('⚠️ Error de red enviando a MongoDB:', e.message);
+        console.error('⚠️ Error de red MongoDB:', e.message);
       }
       
-      // 10. Mostrar resultados en pantalla
+      // 12. Mostrar resultados
       if (data && data.frequencies && data.frequencies.length > 0) {
         statusDiv.className = 'status success';
         statusIcon.textContent = '✅';
-        statusText.textContent = `${data.frequencies.length} señal(es) | ID Local: ${idLocal}`;
+        statusText.textContent = `${data.frequencies.length} señal(es) | ${direccionInfo.direccion}`;
         displayResults(data.frequencies);
       } else {
         statusDiv.className = 'status success';
         statusIcon.textContent = '💾';
-        statusText.textContent = `Captura guardada (ID: ${idLocal})`;
+        statusText.textContent = `Captura guardada: ${direccionInfo.direccion}`;
       }
       
     } catch (error) {
@@ -259,7 +325,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     startBtn.disabled = false;
     stopBtn.disabled = true;
     statusDiv.className = 'status';
-    statusIcon.textContent = '⏸️';
+    statusIcon.textContent = '️';
     statusText.textContent = 'Captura detenida manualmente';
     
     if (audioCapture) audioCapture.stop();
