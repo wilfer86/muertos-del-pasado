@@ -5,15 +5,210 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panel Admin - Muertos del Pasado</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #111; color: #fff; padding: 20px; text-align: center; }
-    .btn { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; background: #0a0a0a; color: #e0e0e0; padding: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    header { text-align: center; padding: 30px 0; border-bottom: 2px solid #333; margin-bottom: 30px; }
+    h1 { font-size: 2.5em; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.3); margin-bottom: 10px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px; }
+    .stat-card { background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: 20px; text-align: center; }
+    .stat-number { font-size: 3em; color: #00d4ff; font-weight: bold; }
+    .stat-label { color: #888; margin-top: 10px; }
+    .controls { display: flex; gap: 15px; margin-bottom: 30px; flex-wrap: wrap; }
+    button { background: #00d4ff; color: #000; border: none; padding: 12px 25px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px; transition: all 0.3s; }
+    button:hover { background: #00a8cc; transform: translateY(-2px); }
+    button:disabled { background: #555; color: #aaa; cursor: not-allowed; transform: none; }
+    .captures-list { display: grid; gap: 20px; }
+    .capture-card { background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: 25px; transition: all 0.3s; }
+    .capture-card:hover { border-color: #00d4ff; box-shadow: 0 0 20px rgba(0,212,255,0.2); }
+    .capture-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+    .capture-id { background: #00d4ff; color: #000; padding: 5px 15px; border-radius: 20px; font-weight: bold; }
+    .capture-date { color: #888; font-size: 0.9em; }
+    .capture-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 15px 0; }
+    .info-item { background: #0f0f0f; padding: 10px; border-radius: 5px; }
+    .info-label { color: #666; font-size: 0.85em; }
+    .info-value { color: #fff; font-weight: bold; margin-top: 5px; }
+    .audio-container { background: #0f0f0f; padding: 15px; border-radius: 5px; margin: 15px 0; }
+    .audio-player { width: 100%; margin-bottom: 10px; }
+    .btn-ia { background: #00cc66; color: white; width: 100%; margin-top: 5px; }
+    .btn-ia:hover { background: #00994d; }
+    .frequencies { margin-top: 15px; padding: 15px; background: #0f0f0f; border-radius: 5px; }
+    .freq-tag { display: inline-block; background: #333; padding: 5px 10px; margin: 5px; border-radius: 3px; font-size: 0.9em; }
+    .loading { text-align: center; padding: 50px; color: #666; }
+    .error { background: #ff4444; color: white; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    @media (max-width: 768px) { h1 { font-size: 1.8em; } .stat-number { font-size: 2em; } }
   </style>
 </head>
 <body>
-  <h1>🔬 Panel de Administración Científica</h1>
-  <p>Si estás viendo esto, ¡la ruta /admin funciona perfectamente en Render!</p>
-  <p>Aquí cargaremos el mapa, las estadísticas y los audios de MongoDB.</p>
-  
-  <a href="/" class="btn">← Volver a la App</a>
+  <div class="container">
+    <header>
+      <h1>🔬 Panel de Administración Científica</h1>
+      <p>Muertos del Pasado - Base de Datos de Capturas</p>
+    </header>
+
+    <div class="stats">
+      <div class="stat-card"><div class="stat-number" id="totalCapturas">0</div><div class="stat-label">Total Capturas</div></div>
+      <div class="stat-card"><div class="stat-number" id="conAudio">0</div><div class="stat-label">Con Audio</div></div>
+      <div class="stat-card"><div class="stat-number" id="usuarios">0</div><div class="stat-label">Usuarios Únicos</div></div>
+      <div class="stat-card"><div class="stat-number" id="horasAudio">0</div><div class="stat-label">Horas de Audio</div></div>
+    </div>
+
+    <div class="controls">
+      <button onclick="cargarCapturas()">🔄 Actualizar</button>
+      <button onclick="exportarJSON()">📥 Exportar JSON</button>
+      <button onclick="window.location.href='/'">← Volver a la App</button>
+    </div>
+
+    <div id="loading" class="loading"><p>Cargando capturas desde MongoDB...</p></div>
+    <div id="capturesList" class="captures-list"></div>
+  </div>
+
+  <script>
+    let capturas = [];
+
+    async function cargarCapturas() {
+      const loading = document.getElementById('loading');
+      const list = document.getElementById('capturesList');
+      loading.style.display = 'block';
+      list.innerHTML = '';
+      try {
+        const response = await fetch('/api/capturas');
+        const data = await response.json();
+        if (data.success) {
+          capturas = data.data;
+          mostrarCapturas(capturas);
+          calcularEstadisticas(capturas);
+        } else { throw new Error('Error al cargar capturas'); }
+      } catch (error) {
+        list.innerHTML = '<div class="error"> Error al cargar datos: ' + error.message + '</div>';
+      } finally { loading.style.display = 'none'; }
+    }
+
+    // FUNCIÓN DE IA: FILTRO DE AISLAMIENTO DE VOZ (EVP)
+    async function procesarAudioEVP(audioUrl, btn) {
+      if (!audioUrl) { alert('No hay audio disponible.'); return; }
+      
+      btn.textContent = '⏳ Analizando espectro...';
+      btn.disabled = true;
+
+      try {
+        const response = await fetch(audioUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        
+        const source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        
+        // Filtro Paso Alto: Elimina ruido de fondo, viento, tráfico (< 300Hz)
+        const lowCut = audioCtx.createBiquadFilter();
+        lowCut.type = 'highpass';
+        lowCut.frequency.value = 300; 
+        
+        // Filtro Paso Bajo: Elimina estática, interferencias de alta frecuencia (> 3400Hz)
+        const highCut = audioCtx.createBiquadFilter();
+        highCut.type = 'lowpass';
+        highCut.frequency.value = 3400; 
+        
+        // Amplificador: Aumenta la ganancia de las frecuencias de voz aisladas
+        const gainNode = audioCtx.createGain();
+        gainNode.gain.value = 4.0; 
+        
+        // Conectar la cadena de procesamiento
+        source.connect(lowCut);
+        lowCut.connect(highCut);
+        highCut.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        source.start(0);
+        btn.textContent = '▶️ Reproduciendo Filtro IA (Voz aislada)...';
+        
+        source.onended = () => {
+          btn.textContent = '🎧 Procesar Audio (Filtro IA)';
+          btn.disabled = false;
+        };
+      } catch (error) {
+        console.error('Error al procesar audio:', error);
+        btn.textContent = '❌ Error al procesar';
+        setTimeout(() => { btn.textContent = '🎧 Procesar Audio (Filtro IA)'; btn.disabled = false; }, 2000);
+      }
+    }
+
+    function mostrarCapturas(capturas) {
+      const list = document.getElementById('capturesList');
+      if (capturas.length === 0) {
+        list.innerHTML = '<p style="text-align: center; color: #666;">No hay capturas registradas</p>';
+        return;
+      }
+      
+      capturas.forEach((captura, index) => {
+        const card = document.createElement('div');
+        card.className = 'capture-card';
+        const fecha = new Date(captura.fecha).toLocaleString('es-CO');
+        const tieneAudio = captura.audioUrl && captura.audioUrl !== 'null' && captura.audioUrl !== null;
+        
+        let frecuenciasHtml = '';
+        if (captura.frecuenciasDetectadas && captura.frecuenciasDetectadas.length > 0) {
+          frecuenciasHtml = '<div class="frequencies"><strong>Frecuencias detectadas:</strong><br>';
+          captura.frecuenciasDetectadas.forEach((freq) => {
+            frecuenciasHtml += `<span class="freq-tag">${freq.frecuencia || freq.frequency || 'N/A'}</span>`;
+          });
+          frecuenciasHtml += '</div>';
+        }
+        
+        card.innerHTML = `
+          <div class="capture-header">
+            <span class="capture-id">#${index + 1}</span>
+            <span class="capture-date">${fecha}</span>
+          </div>
+          <div class="capture-info">
+            <div class="info-item"><div class="info-label">Ubicación GPS</div><div class="info-value">${captura.ubicacion?.lat?.toFixed(4) || 'N/A'}, ${captura.ubicacion?.lon?.toFixed(4) || 'N/A'}</div></div>
+            <div class="info-item"><div class="info-label">Duración</div><div class="info-value">${captura.duracion || 0}s</div></div>
+            <div class="info-item"><div class="info-label">Intensidad Máxima</div><div class="info-value">${captura.intensidadMaxima || 0}</div></div>
+            <div class="info-item"><div class="info-label">Potencial Energético</div><div class="info-value">${captura.potencialEnergetico || 'bajo'}</div></div>
+          </div>
+          
+          ${tieneAudio ? `
+            <div class="audio-container">
+              <div class="info-label" style="margin-bottom:5px;">🎙️ Audio Original (Evidencia Pura):</div>
+              <audio controls class="audio-player"><source src="${captura.audioUrl}" type="audio/webm">Tu navegador no soporta audio.</audio>
+              <button class="btn-ia" onclick="procesarAudioEVP('${captura.audioUrl}', this)"> Procesar Audio (Filtro IA - Aislar Voces)</button>
+            </div>
+          ` : '<p style="color: #666; font-style: italic;">Sin audio disponible</p>'}
+          
+          ${frecuenciasHtml}
+          <div style="margin-top: 15px;"><div class="info-label">Notas:</div><div>${captura.notas || 'Sin notas'}</div></div>
+          <div style="margin-top: 15px; font-size: 0.85em; color: #666;">User ID: ${captura.userId || 'N/A'} | Mongo ID: ${captura._id}</div>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    function calcularEstadisticas(capturas) {
+      const total = capturas.length;
+      const conAudio = capturas.filter(c => c.audioUrl && c.audioUrl !== 'null').length;
+      const usuariosUnicos = new Set(capturas.map(c => c.userId)).size;
+      const totalSegundos = capturas.reduce((sum, c) => sum + (c.duracion || 0), 0);
+      const horasAudio = (totalSegundos / 3600).toFixed(2);
+      document.getElementById('totalCapturas').textContent = total;
+      document.getElementById('conAudio').textContent = conAudio;
+      document.getElementById('usuarios').textContent = usuariosUnicos;
+      document.getElementById('horasAudio').textContent = horasAudio;
+    }
+
+    function exportarJSON() {
+      if (capturas.length === 0) { alert('No hay datos para exportar'); return; }
+      const dataStr = JSON.stringify(capturas, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `capturas_muertos_del_pasado_${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+    }
+
+    window.addEventListener('DOMContentLoaded', cargarCapturas);
+  </script>
 </body>
 </html>
