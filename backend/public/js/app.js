@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await database.init();
     console.log('✅ BD Local inicializada');
   } catch (error) {
-    console.error(' Error BD:', error);
+    console.error('❌ Error BD:', error);
   }
   
   const startBtn = document.getElementById('startBtn');
@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         nombreLugar: address.name || address.road || 'Sin nombre'
       };
       
-      console.log(' Dirección:', direccionInfo.direccion);
+      console.log('📍 Dirección:', direccionInfo.direccion);
     } catch (error) {
       console.error('Error geocoding:', error);
       direccionInfo = {
@@ -258,10 +258,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.log('💾 Guardado local ID:', idLocal);
       
       // 11. Enviar a MongoDB CON TODOS LOS DATOS
+      let capturaMongoId = null;
+      
       try {
-        console.log(' Convirtiendo audio a base64...');
+        console.log('🔄 Convirtiendo audio a base64...');
         const audioBase64 = audioBlob ? await window.blobToBase64(audioBlob) : null;
-        console.log('📦 Tamaño del audio:', audioBase64 ? (audioBase64.length / 1024 / 1024).toFixed(2) + ' MB' : '0 MB');
+        console.log(' Tamaño del audio:', audioBase64 ? (audioBase64.length / 1024 / 1024).toFixed(2) + ' MB' : '0 MB');
 
         const response = await fetch('/api/capturas', {
           method: 'POST',
@@ -285,8 +287,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (response.ok) {
           const result = await response.json();
-          console.log('✅ MongoDB guardado:', result.data._id);
-          statusText.textContent = `✅ Guardado: ${direccionInfo.direccion}`;
+          capturaMongoId = result.data._id;
+          console.log('✅ MongoDB guardado:', capturaMongoId);
         } else {
           const errorData = await response.json();
           console.error('❌ Error MongoDB:', errorData);
@@ -295,16 +297,52 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('⚠️ Error de red MongoDB:', e.message);
       }
       
-      // 12. Mostrar resultados
-      if (data && data.frequencies && data.frequencies.length > 0) {
+      // 12. Mostrar resultados CON BOTÓN DIRECTO A LA CAPTURA
+      if (capturaMongoId) {
+        // Si se guardó en MongoDB, mostrar botón para ver la captura
+        const capturaUrl = window.location.origin + '/captura.html?id=' + capturaMongoId;
+        
         statusDiv.className = 'status success';
         statusIcon.textContent = '✅';
-        statusText.textContent = `${data.frequencies.length} señal(es) | ${direccionInfo.direccion}`;
-        displayResults(data.frequencies);
+        statusText.textContent = `Captura guardada: ${direccionInfo.direccion}`;
+        
+        resultsDiv.innerHTML = `
+          <div style="background: #001a33; border: 2px solid #00d4ff; padding: 25px; border-radius: 10px; margin-top: 20px; text-align: center;">
+            <h3 style="color: #00d4ff; margin-bottom: 15px;">🎧 Tu Captura está lista</h3>
+            <p style="margin-bottom: 20px; color: #aaa;">
+              Haz clic para ver y escuchar tu evidencia científica
+            </p>
+            <a href="${capturaUrl}" 
+               style="background: #00d4ff; color: #000; padding: 15px 30px; border-radius: 5px; text-decoration: none; font-weight: bold; display: inline-block; margin: 10px 0;">
+              🔬 Ver Mi Captura
+            </a>
+            <p style="margin-top: 20px; font-size: 0.85em; color: #666;">
+              ID: ${capturaMongoId.substring(0, 8)}...
+            </p>
+          </div>
+        `;
       } else {
+        // Si solo se guardó localmente
         statusDiv.className = 'status success';
         statusIcon.textContent = '💾';
-        statusText.textContent = `Captura guardada: ${direccionInfo.direccion}`;
+        statusText.textContent = `Captura guardada localmente: ${direccionInfo.direccion}`;
+        
+        resultsDiv.innerHTML = `
+          <div style="background: #1a1a1a; border: 2px solid #666; padding: 25px; border-radius: 10px; margin-top: 20px; text-align: center;">
+            <h3 style="color: #fff; margin-bottom: 15px;">💾 Captura guardada localmente</h3>
+            <p style="color: #aaa;">
+              ID Local: ${idLocal}
+            </p>
+            <p style="margin-top: 15px; font-size: 0.85em; color: #666;">
+              La captura se guardó en tu dispositivo pero no se pudo enviar a la nube
+            </p>
+          </div>
+        `;
+      }
+      
+      // Mostrar frecuencias detectadas
+      if (data && data.frequencies && data.frequencies.length > 0) {
+        displayResults(data.frequencies);
       }
       
     } catch (error) {
@@ -325,7 +363,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     startBtn.disabled = false;
     stopBtn.disabled = true;
     statusDiv.className = 'status';
-    statusIcon.textContent = '️';
+    statusIcon.textContent = '⏸️';
     statusText.textContent = 'Captura detenida manualmente';
     
     if (audioCapture) audioCapture.stop();
