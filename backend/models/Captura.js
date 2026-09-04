@@ -10,7 +10,7 @@ const capturaSchema = new mongoose.Schema({
     lon: { type: Number, required: true }
   },
   direccionCivil: {
-    tipo: String,
+    type: String,
     default: 'Desconocida'
   },
   barrio: {
