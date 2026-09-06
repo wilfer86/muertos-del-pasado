@@ -60,20 +60,27 @@
       box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3);
       background: rgba(0, 212, 255, 0.1);
     }
-    .app-logo {
-      font-size: 4em;
-      margin-bottom: 15px;
-    }
     .app-name {
       font-size: 1.8em;
       color: #00d4ff;
-      margin-bottom: 10px;
+      margin-bottom: 15px;
       font-weight: bold;
     }
     .app-desc {
       color: #aaa;
       font-size: 0.95em;
       line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .app-logo {
+      width: 120px;
+      height: 120px;
+      object-fit: contain;
+      margin: 0 auto;
+      display: block;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 10px;
     }
     .magazine-section {
       background: rgba(255, 215, 0, 0.1);
@@ -129,29 +136,31 @@
 <body>
   <div class="container">
     <header>
-      <h1> WILFER TECH</h1>
+      <h1>🚀 WILFER TECH</h1>
       <p class="subtitle">Ecosistema de Inteligencia Artificial y Tecnología</p>
     </header>
 
     <div class="apps-grid">
       <!-- Muertos del Pasado -->
       <a href="https://muertos-del-pasado.onrender.com" class="app-card">
-        <div class="app-logo"></div>
-        <div class="app-name">MUERTOS DEL PASADO</div>
+        <div class="app-name">🔬 MUERTOS DEL PASADO</div>
         <div class="app-desc">
           Arqueología de señales de radio muertas y psicofonías.<br>
-          Captura y analiza evidencia paranormal con IA.
+          Captura y analiza evidencia paranormal con IA.<br>
+          Convierte tu celular en un laboratorio portátil.
         </div>
+        <img src="/logo.png" alt="Logo Muertos del Pasado" class="app-logo">
       </a>
 
       <!-- Didasko AI -->
       <a href="https://didasko-ai.onrender.com" class="app-card">
-        <div class="app-logo">🦉</div>
-        <div class="app-name">DIDASKO AI</div>
+        <div class="app-name">🦉 DIDASKO AI</div>
         <div class="app-desc">
-          Tu tutor educativo inteligente con El Profeta Deportivo.<br>
-          Predicciones de fútbol, análisis de imágenes y más.
+          Tu tutor educativo inteligente.<br>
+          <strong>El Profeta Deportivo:</strong> predice resultados de fútbol antes de jugarse.<br>
+          Chat IA, creación de imágenes y más.
         </div>
+        <img src="/logo1.png" alt="Logo Didasko AI" class="app-logo">
       </a>
     </div>
 
@@ -159,12 +168,13 @@
     <div class="magazine-section">
       <div class="magazine-title">📚 REVISTA DIGITAL - EDICIÓN #01</div>
       <div class="magazine-desc">
-        El Universo Que No Ves<br>
+        <strong>El Universo Que No Ves</strong><br>
         Anti-materia, qubits y el agua<br>
+        Conoce la historia de Wilfer, el creador detrás del búho<br><br>
         <strong>100% GRATIS</strong>
       </div>
-      <a href="/revista-edicion-01.pdf" download class="btn-download">
-         DESCARGAR REVISTA PDF
+      <a href="/DIDASKO AI REVISTA DIGITAL.pdf" download class="btn-download">
+        📥 DESCARGAR REVISTA PDF
       </a>
     </div>
 
