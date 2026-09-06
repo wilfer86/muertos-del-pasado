@@ -37,6 +37,13 @@ jobs:
         cd mobile
         npx cap sync android
         
+    - name: Add Permissions to AndroidManifest
+      run: |
+        MANIFEST="mobile/android/app/src/main/AndroidManifest.xml"
+        # Agregar permisos antes de <application
+        sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />' "$MANIFEST"
+        cat "$MANIFEST"
+        
     - name: Build APK
       run: |
         cd mobile/android
