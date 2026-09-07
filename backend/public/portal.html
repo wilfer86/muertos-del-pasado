@@ -82,6 +82,63 @@
       background: rgba(0, 0, 0, 0.3);
       padding: 10px;
     }
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 15px;
+    }
+    .btn {
+      padding: 12px 25px;
+      border-radius: 25px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 0.95em;
+      display: inline-block;
+      transition: all 0.3s;
+      border: 2px solid transparent;
+    }
+    .btn-primary {
+      background: #00d4ff;
+      color: #000;
+    }
+    .btn-primary:hover {
+      transform: scale(1.05);
+      box-shadow: 0 5px 20px rgba(0, 212, 255, 0.5);
+    }
+    .btn-secondary {
+      background: transparent;
+      color: #00d4ff;
+      border: 2px solid #00d4ff;
+    }
+    .btn-secondary:hover {
+      background: rgba(0, 212, 255, 0.1);
+    }
+    .btn-android {
+      background: #3DDC84;
+      color: #000;
+    }
+    .btn-android:hover {
+      transform: scale(1.05);
+      box-shadow: 0 5px 20px rgba(61, 220, 132, 0.5);
+    }
+    .platform-badge {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 12px;
+      font-size: 0.75em;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .badge-android {
+      background: #3DDC84;
+      color: #000;
+    }
+    .badge-web {
+      background: #00d4ff;
+      color: #000;
+    }
     .magazine-section {
       background: rgba(255, 215, 0, 0.1);
       border: 2px solid #ffd700;
@@ -130,6 +187,7 @@
       h1 { font-size: 1.8em; }
       .app-name { font-size: 1.4em; }
       .apps-grid { grid-template-columns: 1fr; }
+      .btn-group { flex-direction: column; }
     }
   </style>
 </head>
@@ -142,7 +200,7 @@
 
     <div class="apps-grid">
       <!-- Muertos del Pasado -->
-      <a href="https://muertos-del-pasado.onrender.com" class="app-card">
+      <div class="app-card">
         <div class="app-name">🔬 MUERTOS DEL PASADO</div>
         <div class="app-desc">
           Arqueología de señales de radio muertas y psicofonías.<br>
@@ -150,10 +208,13 @@
           Convierte tu celular en un laboratorio portátil.
         </div>
         <img src="/logo.png" alt="Logo Muertos del Pasado" class="app-logo">
-      </a>
+        <div class="btn-group" id="btn-muertos">
+          <!-- Los botones se generan automáticamente con JavaScript -->
+        </div>
+      </div>
 
       <!-- Didasko AI -->
-      <a href="https://didasko-ai.onrender.com" class="app-card">
+      <div class="app-card">
         <div class="app-name">🦉 DIDASKO AI</div>
         <div class="app-desc">
           Tu tutor educativo inteligente.<br>
@@ -161,7 +222,10 @@
           Chat IA, creación de imágenes y más.
         </div>
         <img src="/logo1.png" alt="Logo Didasko AI" class="app-logo">
-      </a>
+        <div class="btn-group" id="btn-didasko">
+          <!-- Los botones se generan automáticamente con JavaScript -->
+        </div>
+      </div>
     </div>
 
     <!-- Revista Digital -->
@@ -184,5 +248,74 @@
       <a href="https://wa.me/573171547065" class="whatsapp">+57 317 154 7065</a>
     </div>
   </div>
+
+  <script>
+    // Detectar si es Android
+    function isAndroid() {
+      return /Android/i.test(navigator.userAgent);
+    }
+
+    // Detectar si es iOS
+    function isIOS() {
+      return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    }
+
+    // Generar botones dinámicamente
+    function generarBotones() {
+      const esAndroid = isAndroid();
+      const esIOS = isIOS();
+      
+      // Botones para Muertos del Pasado
+      const btnMuertos = document.getElementById('btn-muertos');
+      if (esAndroid) {
+        btnMuertos.innerHTML = `
+          <span class="platform-badge badge-android">📱 Android</span>
+          <a href="/Muertos-del-Pasado.apk" download class="btn btn-android">
+            ⬇️ Descargar APK
+          </a>
+          <a href="https://muertos-del-pasado.onrender.com" target="_blank" class="btn btn-secondary">
+            🌐 Versión Web
+          </a>
+        `;
+      } else {
+        btnMuertos.innerHTML = `
+          <span class="platform-badge badge-web">🌐 Web</span>
+          <a href="https://muertos-del-pasado.onrender.com" target="_blank" class="btn btn-primary">
+            🚀 Abrir App Web
+          </a>
+          ${!esIOS ? `<a href="/Muertos-del-Pasado.apk" download class="btn btn-secondary">
+            📥 Descargar APK (Android)
+          </a>` : ''}
+        `;
+      }
+
+      // Botones para Didasko AI
+      const btnDidasko = document.getElementById('btn-didasko');
+      if (esAndroid) {
+        btnDidasko.innerHTML = `
+          <span class="platform-badge badge-android">📱 Android</span>
+          <a href="/DidaskoAI.apk" download class="btn btn-android">
+            ⬇️ Descargar APK
+          </a>
+          <a href="https://didasko-ai.onrender.com" target="_blank" class="btn btn-secondary">
+            🌐 Versión Web
+          </a>
+        `;
+      } else {
+        btnDidasko.innerHTML = `
+          <span class="platform-badge badge-web">🌐 Web</span>
+          <a href="https://didasko-ai.onrender.com" target="_blank" class="btn btn-primary">
+            🚀 Abrir App Web
+          </a>
+          ${!esIOS ? `<a href="/DidaskoAI.apk" download class="btn btn-secondary">
+            📥 Descargar APK (Android)
+          </a>` : ''}
+        `;
+      }
+    }
+
+    // Ejecutar al cargar la página
+    window.addEventListener('DOMContentLoaded', generarBotones);
+  </script>
 </body>
 </html>
