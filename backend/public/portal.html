@@ -139,6 +139,20 @@
       background: #00d4ff;
       color: #000;
     }
+    /* ESTILO PARA LA ALERTA DE TIKTOK */
+    .tiktok-alert {
+      background: #ff9900;
+      color: #000;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-size: 0.85em;
+      font-weight: bold;
+      width: 100%;
+      text-align: left;
+      border-left: 5px solid #000;
+    }
+    
     .magazine-section {
       background: rgba(255, 215, 0, 0.1);
       border: 2px solid #ffd700;
@@ -230,7 +244,7 @@
 
     <!-- Revista Digital -->
     <div class="magazine-section">
-      <div class="magazine-title">📚 REVISTA DIGITAL - EDICIÓN #01</div>
+      <div class="magazine-title"> REVISTA DIGITAL - EDICIÓN #01</div>
       <div class="magazine-desc">
         <strong>El Universo Que No Ves</strong><br>
         Anti-materia, qubits y el agua<br>
@@ -238,7 +252,7 @@
         <strong>100% GRATIS</strong>
       </div>
       <a href="/DIDASKO AI REVISTA DIGITAL.pdf" download class="btn-download">
-        📥 DESCARGAR REVISTA PDF
+         DESCARGAR REVISTA PDF
       </a>
     </div>
 
@@ -260,15 +274,32 @@
       return /iPhone|iPad|iPod/i.test(navigator.userAgent);
     }
 
+    // DETECTAR SI ESTÁ DENTRO DE TIKTOK
+    function isTikTokBrowser() {
+      return /musical_ly|tiktok/i.test(navigator.userAgent);
+    }
+
     // Generar botones dinámicamente
     function generarBotones() {
       const esAndroid = isAndroid();
       const esIOS = isIOS();
+      const esTikTok = isTikTokBrowser();
       
+      // Mensaje de advertencia para TikTok
+      let tiktokWarning = '';
+      if (esTikTok) {
+        tiktokWarning = `
+          <div class="tiktok-alert">
+            ⚠️ Estás dentro de TikTok. Para descargar, toca los 3 puntitos (...) arriba a la derecha y selecciona "Abrir en navegador".
+          </div>
+        `;
+      }
+
       // Botones para Muertos del Pasado
       const btnMuertos = document.getElementById('btn-muertos');
       if (esAndroid) {
         btnMuertos.innerHTML = `
+          ${tiktokWarning}
           <span class="platform-badge badge-android">📱 Android</span>
           <a href="/Muertos-del-Pasado.apk" download class="btn btn-android">
             ⬇️ Descargar APK
@@ -279,9 +310,10 @@
         `;
       } else {
         btnMuertos.innerHTML = `
-          <span class="platform-badge badge-web">🌐 Web</span>
+          ${tiktokWarning}
+          <span class="platform-badge badge-web"> Web</span>
           <a href="https://muertos-del-pasado.onrender.com" target="_blank" class="btn btn-primary">
-            🚀 Abrir App Web
+             Abrir App Web
           </a>
           ${!esIOS ? `<a href="/Muertos-del-Pasado.apk" download class="btn btn-secondary">
             📥 Descargar APK (Android)
@@ -293,9 +325,10 @@
       const btnDidasko = document.getElementById('btn-didasko');
       if (esAndroid) {
         btnDidasko.innerHTML = `
+          ${tiktokWarning}
           <span class="platform-badge badge-android">📱 Android</span>
           <a href="/DidaskoAI.apk" download class="btn btn-android">
-            ⬇️ Descargar APK
+            ️ Descargar APK
           </a>
           <a href="https://didasko-ai.onrender.com" target="_blank" class="btn btn-secondary">
             🌐 Versión Web
@@ -303,6 +336,7 @@
         `;
       } else {
         btnDidasko.innerHTML = `
+          ${tiktokWarning}
           <span class="platform-badge badge-web">🌐 Web</span>
           <a href="https://didasko-ai.onrender.com" target="_blank" class="btn btn-primary">
             🚀 Abrir App Web
